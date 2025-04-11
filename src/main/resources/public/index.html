@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rubik's Cube Face Solver</title>
+    <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: #f0f0f0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 30px;
+        }
+
+        h1 {
+          font-size: 36px;
+          margin-bottom: 10px;
+        }
+
+        .instructions {
+          font-size: 18px;
+          color: #555;
+          margin-bottom: 20px;
+          max-width: 600px;
+          text-align: center;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(3, 90px);
+          gap: 10px;
+          margin: 20px 0;
+        }
+
+        .cell {
+          width: 90px;
+          height: 90px;
+          background: gray;
+          border: 2px solid #444;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: transform 0.1s ease;
+        }
+
+        .cell:hover {
+          transform: scale(1.05);
+        }
+
+        #color-picker {
+          display: none;
+          position: absolute;
+          background: white;
+          border: 2px solid #888;
+          border-radius: 8px;
+          padding: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+          z-index: 10;
+        }
+
+        .color-option {
+          width: 40px;
+          height: 40px;
+          margin: 4px;
+          display: inline-block;
+          border-radius: 6px;
+          cursor: pointer;
+          border: 2px solid #555;
+        }
+
+        button {
+          padding: 14px 28px;
+          font-size: 18px;
+          margin-top: 20px;
+          border: none;
+          border-radius: 6px;
+          background-color: #007bff;
+          color: white;
+          cursor: pointer;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+          background-color: #0056b3;
+        }
+
+        #output {
+          margin-top: 25px;
+          font-size: 20px;
+          font-weight: bold;
+          background: #ffffff;
+          padding: 16px 24px;
+          border-radius: 10px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .iframe-wrapper {
+          width: 400px;
+          height: 400px;
+          overflow: hidden;
+          margin: 30px auto;
+          border-radius: 12px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+          position: relative;
+        }
+
+        .iframe-wrapper iframe {
+          width: 600px;
+          height: 600px;
+          border: none;
+          transform: translate(-80px, -80px);
+        }
+    </style>
+</head>
+<body>
+
+<h1>Rubik’s Cube Face Solver</h1>
+<div class="instructions">
+    Click a tile to select a color. Once all 9 tiles match your cube’s face, hit <b>Solve</b> to get the required moves.
+</div>
+
+<div class="grid" id="grid"></div>
+<div id="color-picker"></div>
+
+<button onclick="solve()">🧠 Solve</button>
+<div id="output">Your solution will appear here</div>
+
+<h2 id="iframe-title" style="margin-top: 40px; display: none;">🎥 See the moves performed. Click "Solve" again if you have changed the pattern and would like to see the new solution</h2>
+<div id="iframe-container"></div>
+
+<script>
+    const COLORS = ['w', 'g', 'r', 'o', 'b', 'y'];
+    const COLOR_MAP = {
+      w: 'white',
+      g: 'green',
+      r: 'red',
+      o: 'orange',
+      b: 'blue',
+      y: 'yellow'
+    };
+
+    const grid = document.getElementById('grid');
+    const picker = document.getElementById('color-picker');
+    let activeCell = null;
+
+    // Create the 3x3 grid
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.color = 'w';
+      cell.style.background = COLOR_MAP['w'];
+
+      cell.onclick = (e) => {
+        activeCell = cell;
+        showColorPicker(e.clientX, e.clientY);
+      };
+
+      grid.appendChild(cell);
+    }
+
+    // Create color options
+    COLORS.forEach(c => {
+      const btn = document.createElement('div');
+      btn.className = 'color-option';
+      btn.style.background = COLOR_MAP[c];
+      btn.onclick = () => {
+        if (activeCell) {
+          activeCell.dataset.color = c;
+          activeCell.style.background = COLOR_MAP[c];
+          picker.style.display = 'none';
+        }
+      };
+      picker.appendChild(btn);
+    });
+
+    // Show the color picker near the click
+    function showColorPicker(x, y) {
+      picker.style.left = x + 'px';
+      picker.style.top = y + 'px';
+      picker.style.display = 'block';
+    }
+
+    // Hide picker when clicking away
+    document.addEventListener('click', (e) => {
+      if (!picker.contains(e.target) && e.target !== activeCell) {
+        picker.style.display = 'none';
+      }
+    });
+
+    // Solve the cube and show results
+    async function solve() {
+      const cells = document.querySelectorAll('.cell');
+      let input = '';
+      cells.forEach(cell => input += cell.dataset.color);
+
+      const response = await fetch('/solve', {
+        method: 'POST',
+        body: input
+      });
+
+     const result = await response.text();
+  document.getElementById('output').innerText = 'Moves: ' + result;
+
+  // Show iframe and title
+  const moves = result.trim();
+  const algEncoded = encodeURIComponent(moves);
+  const moveList = moves.split(' ');
+
+  // Remove the initial rotation if it's one of x, x', x2, z, z', z2, etc.
+  const setupMoves = moveList.slice(
+    (["x", "x'", "x2", "z", "z'", "z2", "y", "y'", "y2"].includes(moveList[0]) ? 1 : 0)
+  ).join(' ');
+  const setupEncoded = encodeURIComponent(setupMoves);
+
+  const iframeURL = `https://ruwix.com/widget/3d/?alg=${algEncoded}&setupmoves=${setupEncoded}&colored=*&hover=4&speed=500&flags=showalg&colors=F:green%20U:white%20R:red%20B:blue%20L:orange%20D:yellow&pov=Ufr&algdisplay=rotations`;
+
+  const iframe = document.createElement('iframe');
+  iframe.width = "250";
+  iframe.height = "380";
+  iframe.style = "width: 250px; height: 380px; border:none; overflow: hidden; margin-top: 10px;";
+  iframe.src = iframeURL;
+  iframe.scrolling = "no";
+
+  document.getElementById('iframe-container').innerHTML = ''; // Clear any old one
+  document.getElementById('iframe-container').appendChild(iframe);
+  document.getElementById('iframe-title').style.display = 'block';
+    }
+</script>
+</body>
+</html>
