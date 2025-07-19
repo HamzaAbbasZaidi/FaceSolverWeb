@@ -15,7 +15,6 @@
     </properties>
 
     <dependencies>
-        <!-- Javalin -->
         <dependency>
             <groupId>io.javalin</groupId>
             <artifactId>javalin</artifactId>
@@ -25,7 +24,6 @@
 
     <build>
         <plugins>
-            <!-- Maven Jar Plugin to define Main-Class -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -33,7 +31,6 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <!-- Replace this with the fully qualified name of your main class -->
                             <Main-Class>org.example.Main</Main-Class>
                         </manifestEntries>
                     </archive>
