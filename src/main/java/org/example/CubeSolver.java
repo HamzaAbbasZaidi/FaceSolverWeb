@@ -488,7 +488,4 @@ public class CubeSolver {
 
     }
 
-
-    // Your face solving logic goes here
-
 }
